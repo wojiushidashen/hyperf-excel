@@ -1,0 +1,75 @@
+{
+    "name": "ezijing/hyperf-excel",
+    "description": "hyperf excel工具包",
+    "homepage": "https://github.com/wojiushidashen/hyperf-excel",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "php",
+        "hyperf",
+        "excel"
+    ],
+    "autoload": {
+        "psr-4": {
+            "Ezijing\\HyperfExcel\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "HyperfTest\\": "tests"
+        }
+    },
+    "authors": [
+        {
+            "name": "啊正",
+            "email": "18435134258@163.com",
+            "homepage": "http://39.106.136.97:8806",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "ext-json": "*",
+        "ext-swoole": ">=4.5",
+        "box/spout": "^3.3",
+        "hyperf/config": "2.2.*",
+        "hyperf/database": "2.2.*",
+        "hyperf/db-connection": "2.2.*",
+        "hyperf/di": "2.2.*",
+        "hyperf/framework": "2.2.*",
+        "hyperf/utils": "2.2.*"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "hyperf/devtool": "~2.2.0",
+        "hyperf/ide-helper": "~2.2.0",
+        "hyperf/testing": "~2.2.0",
+        "mockery/mockery": "^1.0",
+        "phpstan/phpstan": "^0.12",
+        "swoole/ide-helper": "^4.5"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "suggest": {
+        "ext-openssl": "Required to use HTTPS.",
+        "ext-json": "Required to use JSON.",
+        "ext-pdo": "Required to use MySQL Client.",
+        "ext-pdo_mysql": "Required to use MySQL Client.",
+        "ext-redis": "Required to use Redis Client."
+    },
+    "scripts": {
+        "analyse": "phpstan analyse --memory-limit 1024M -l 0 ./src",
+        "test": "co-phpunit --prepend tests/bootstrap.php -c phpunit.xml --colors=always",
+        "cs-fix": "php-cs-fixer fix $1"
+    },
+    "extra": {
+        "hyperf": {
+            "config": "Ezijing\\HyperfExcel\\ConfigProvider"
+        }
+    },
+    "prefer-stable": true
+}

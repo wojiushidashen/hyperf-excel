@@ -70,7 +70,13 @@ class Excel implements ExcelInterface
         // 设置工作表标题名称
         $worksheet->setTitle($tableName);
         $cellMap = $this->cellMap();
-        $worksheet->getStyle('A:' . $cellMap[count($data['titles'])] ?? 'Z')->applyFromArray($this->border);
+        $maxCell = $cellMap[count($data['titles']) - 1];
+        $worksheet->getStyle('A1:' . $maxCell)->applyFromArray($this->border);
+        if ($data['data']) {
+            $dataLen = $data['data'];
+            $worksheet->getStyle("A{$dataLen}:" . $maxCell.$dataLen)->applyFromArray($this->border);
+        }
+
 
         // 表头 设置单元格内容
         foreach ($data['titles'] as $key => $value) {

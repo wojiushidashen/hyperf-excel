@@ -36,7 +36,7 @@ class Excel implements ExcelInterface
     {
         $this->spreadsheet = new Spreadsheet();
         $this->validator = app()->get(Validator::class);
-        pathExists($this->config['local_file_address'] ?? BASE_PATH . '/storage/excel');
+        $this->initLocalFileDir();
     }
 
     /**
@@ -100,6 +100,12 @@ class Excel implements ExcelInterface
      */
     public function exportExcelWithMultipleSheets(string $tableName, array $sheets, array $rows, array $data)
     {
+    }
+
+    protected function initLocalFileDir()
+    {
+        $this->config['local_file_address'] = $this->config['local_file_address'] ?? BASE_PATH . '/storage/excel';
+        pathExists($this->config['local_file_address'] ?? BASE_PATH . '/storage/excel');
     }
 
     /**

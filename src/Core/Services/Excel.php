@@ -41,13 +41,17 @@ class Excel implements ExcelInterface
     {
         $this->validator->verify($rows, [
             'export_way' => 'required|int|in:' . implode(',', array_keys(ExcelConstant::getExportWayMap())),
-            'titles' => 'required|array|unique',
-            'keys' => 'required|array|unique',
+            'titles' => 'required|array|distinct',
+            'keys' => 'required|array|distinct',
         ], [
             'titles.required' => '未设置表头',
             'keys.required' => '未设置列标识',
             'titles.unique' => '表头不能重复',
             'keys.unique' => '列标识不能重复',
+        ]);
+
+        $this->validator->verify($data, [
+            '*' => 'required|array|distinct',
         ]);
 
         if (count($rows['titles']) != count($rows['keys'])) {

@@ -71,12 +71,7 @@ class Excel implements ExcelInterface
         $worksheet->setTitle($tableName);
         $cellMap = $this->cellMap();
         $maxCell = $cellMap[count($data['titles']) - 1];
-        $worksheet->getStyle('A1:' . $maxCell)->applyFromArray($this->border);
-        if ($data['data']) {
-            $dataLen = $data['data'];
-            $worksheet->getStyle("A{$dataLen}:" . $maxCell.$dataLen)->applyFromArray($this->border);
-        }
-
+        $worksheet->getStyle('A1:' . $maxCell . 1)->applyFromArray($this->border);
 
         // 表头 设置单元格内容
         foreach ($data['titles'] as $key => $value) {
@@ -86,6 +81,7 @@ class Excel implements ExcelInterface
         // 从第二行开始,填充表格数据
         $row = 2;
         foreach ($data['data'] as $item) {
+            $worksheet->getStyle("A{$row}:" . $maxCell . $row)->applyFromArray($this->border);
             // 从第一列设置并初始化数据
             foreach ($item as $i => $v) {
                 $rowKey = array_search($i, $data['keys']);

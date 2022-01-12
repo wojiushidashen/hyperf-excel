@@ -7,6 +7,7 @@ namespace Ezijing\HyperfExcel\Core\Services;
 use Ezijing\HyperfExcel\Core\Constants\ErrorCode;
 use Ezijing\HyperfExcel\Core\Constants\ExcelConstant;
 use Ezijing\HyperfExcel\Core\Exceptions\ExcelException;
+use Hyperf\Config\Annotation\Value;
 use Hyperf\HttpMessage\Stream\SwooleStream;
 use Hyperf\HttpServer\Response;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -23,6 +24,11 @@ class Excel implements ExcelInterface
      * @var Validator
      */
     protected $validator;
+
+    /**
+     * @Value("excel_plugin")
+     */
+    protected $config;
 
     private $_fileType = 'Xlsx';
 
@@ -198,6 +204,6 @@ class Excel implements ExcelInterface
 
     protected function getLocalUrl(string $fileName)
     {
-        return BASE_PATH . '/storage/' . $fileName;
+        return $this->config['local_file_address'] . DIRECTORY_SEPARATOR . $fileName;
     }
 }

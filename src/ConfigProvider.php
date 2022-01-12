@@ -24,6 +24,8 @@ class ConfigProvider
                 [
                     'id' => 'config',
                     'description' => '发布注解路由配置.',
+                    'source' => __DIR__ . '/../publish/excel_plugin.php',
+                    'destination' => BASE_PATH . '/config/autoload/excel_plugin.php',
                 ],
             ],
         ];

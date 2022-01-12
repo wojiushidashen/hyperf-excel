@@ -36,6 +36,7 @@ class Excel implements ExcelInterface
 
     public function __construct()
     {
+        $this->initSpreadsheet();
         $this->validator = app()->get(Validator::class);
         $this->initLocalFileDir();
     }

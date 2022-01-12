@@ -37,12 +37,14 @@ class Excel implements ExcelInterface
      *
      * @return mixed|void
      */
-    public function exportExcelForASingleSheet(string $tableName, array $rows, array $data)
+    public function exportExcelForASingleSheet(string $tableName, array $data = [])
     {
-        $this->validator->verify($rows, [
+        $this->validator->verify($data, [
             'export_way' => 'required|int|in:' . implode(',', array_keys(ExcelConstant::getExportWayMap())),
             'titles' => 'required|array|distinct',
             'keys' => 'required|array|distinct',
+            'data' => 'present|array',
+            'data.*' => 'required|array',
         ], [
             'titles.required' => '未设置表头',
             'keys.required' => '未设置列标识',
@@ -50,11 +52,7 @@ class Excel implements ExcelInterface
             'keys.unique' => '列标识不能重复',
         ]);
 
-        $this->validator->verify($data, [
-            '*' => 'required|array|distinct',
-        ]);
-
-        if (count($rows['titles']) != count($rows['keys'])) {
+        if (count($data['titles']) != count($data['keys'])) {
             throw new ExcelException(ErrorCode::PARAMETER_ERROR, '列标识个数与表头标识个数要保持一致');
         }
 
@@ -64,16 +62,16 @@ class Excel implements ExcelInterface
         $worksheet->setTitle($tableName);
 
         // 表头 设置单元格内容
-        foreach ($rows['titles'] as $key => $value) {
+        foreach ($data['titles'] as $key => $value) {
             $worksheet->setCellValueExplicitByColumnAndRow($key + 1, 1, $value, 's');
         }
 
         // 从第二行开始,填充表格数据
         $row = 2;
-        foreach ($data as $item) {
+        foreach ($data['data'] as $item) {
             // 从第一列设置并初始化数据
             foreach ($item as $i => $v) {
-                $rowKey = array_search($i, $rows['keys']);
+                $rowKey = array_search($i, $data['keys']);
                 if ($rowKey === false) {
                     continue;
                 }
@@ -85,7 +83,7 @@ class Excel implements ExcelInterface
 
         $fileName = $this->getFileName($tableName);
 
-        return $this->downloadDistributor($rows['export_way'], $fileName);
+        return $this->downloadDistributor($data['export_way'], $fileName);
     }
 
     /**

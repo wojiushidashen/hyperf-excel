@@ -25,6 +25,8 @@ class Excel implements ExcelInterface
      */
     protected $validator;
 
+    protected $border;
+
     /**
      * @Value("excel_plugin")
      */
@@ -34,7 +36,6 @@ class Excel implements ExcelInterface
 
     public function __construct()
     {
-        $this->spreadsheet = new Spreadsheet();
         $this->validator = app()->get(Validator::class);
         $this->initLocalFileDir();
     }
@@ -67,6 +68,8 @@ class Excel implements ExcelInterface
 
         // 设置工作表标题名称
         $worksheet->setTitle($tableName);
+        $cellMap = $this->cellMap();
+        $worksheet->getStyle('A:' . $cellMap[count($data['titles'])] ?? 'Z')->applyFromArray($this->border);
 
         // 表头 设置单元格内容
         foreach ($data['titles'] as $key => $value) {
@@ -100,6 +103,28 @@ class Excel implements ExcelInterface
      */
     public function exportExcelWithMultipleSheets(string $tableName, array $sheets, array $rows, array $data)
     {
+    }
+
+    protected function initSpreadsheet()
+    {
+        $this->spreadsheet = new Spreadsheet();
+        $this->border = [
+            'borders' => [
+                //外边框
+                'outline' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                ],
+                //内边框
+                'inside' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                ],
+            ],
+        ];
+    }
+
+    protected function cellMap()
+    {
+        return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
     }
 
     protected function initLocalFileDir()

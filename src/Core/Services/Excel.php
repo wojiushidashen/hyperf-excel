@@ -36,6 +36,7 @@ class Excel implements ExcelInterface
     {
         $this->spreadsheet = new Spreadsheet();
         $this->validator = app()->get(Validator::class);
+        pathExists($this->config['local_file_address'] ?? BASE_PATH . '/storage/excel');
     }
 
     /**

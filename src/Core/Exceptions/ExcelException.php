@@ -9,9 +9,9 @@ use Throwable;
 
 class ExcelException extends \RuntimeException
 {
-    public function __construct($code = 0, $message = '', Throwable $previous = null)
+    public function __construct($code = ErrorCode::ERROR, $message = '', Throwable $previous = null)
     {
-        if ($message !== '') {
+        if ($message == '') {
             $message = ErrorCode::getMessage($code) ?? '未知错误';
         }
 

@@ -20,6 +20,14 @@ class Validator
      */
     public $validatorFactory;
 
+    /**
+     * 自定义验证器.
+     *
+     * @param array $params 参数
+     * @param array $validationParams 验证规则
+     * @param array $noticeMessage 自定义提示语
+     * @return bool
+     */
     public function verify(array $params, array $validationParams, array $noticeMessage = [])
     {
         $inputData = [];
@@ -30,8 +38,7 @@ class Validator
         }
         $validator = $this->validatorFactory->make($inputData, $validationParams, $noticeMessage);
         if ($validator->fails()) {
-            $errorMessage = $validator->errors()->getMessages()[0];
-
+            $errorMessage = $validator->errors()->first();
             throw new ExcelException(ErrorCode::PARAMETER_ERROR, $errorMessage);
         }
 

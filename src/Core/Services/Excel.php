@@ -12,6 +12,8 @@ use Hyperf\HttpMessage\Stream\SwooleStream;
 use Hyperf\HttpServer\Response;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class Excel implements ExcelInterface
 {
@@ -21,17 +23,31 @@ class Excel implements ExcelInterface
     protected $spreadsheet;
 
     /**
+     * 验证器.
+     *
      * @var Validator
      */
     protected $validator;
 
+    /**
+     * 边框.
+     *
+     * @var array
+     */
     protected $border;
 
     /**
+     * 本地配置.
+     *
      * @Value("excel_plugin")
      */
     protected $config;
 
+    /**
+     * 文件类型.
+     *
+     * @var string
+     */
     private $_fileType = 'Xlsx';
 
     public function __construct()
@@ -71,7 +87,15 @@ class Excel implements ExcelInterface
         $worksheet->setTitle($tableName);
         $cellMap = $this->cellMap();
         $maxCell = $cellMap[count($data['titles']) - 1];
-        $worksheet->getStyle('A1:' . $maxCell . 1)->applyFromArray($this->border);
+        $worksheet->getStyle('A1:' . $maxCell . 1)->applyFromArray(array_merge($this->border, [
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER, // 水平居中对齐
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'fffbeeee'],
+            ],
+        ]));
 
         // 表头 设置单元格内容
         foreach ($data['titles'] as $key => $value) {
@@ -104,10 +128,74 @@ class Excel implements ExcelInterface
      *
      * @return mixed|void
      */
-    public function exportExcelWithMultipleSheets(string $tableName, array $sheets, array $rows, array $data)
+    public function exportExcelWithMultipleSheets(string $tableName, array $data = [])
     {
+        // 表格参数验证
+        $this->validator->verify($data, [
+            'export_way' => 'required|int|in:' . implode(',', array_keys(ExcelConstant::getExportWayMap())),
+            'sheets_params' => 'required|array',
+            'sheets_params.*.sheet_title' => 'required|string',
+            'sheets_params.*.titles' => 'required|array|distinct',
+            'sheets_params.*.keys' => 'required|array|distinct',
+            'sheets_params.*.data' => 'present|array',
+            'sheets_params.*.data.*' => 'required|array',
+        ], [
+            'sheets_params.required' => 'sheets参数未设置',
+        ]);
+
+        $firstSheet = true;
+        foreach ($data['sheets_params'] as $sheetParamsValue) {
+            if ($firstSheet) {
+                $worksheet = $this->spreadsheet->getActiveSheet();
+            } else {
+                $worksheet = $this->spreadsheet->createSheet();
+            }
+            $firstSheet = false;
+
+            // 设置工作表名称
+            $worksheet->setTitle($sheetParamsValue['sheet_title']);
+            $cellMap = $this->cellMap();
+            $maxCell = $cellMap[count($sheetParamsValue['titles']) - 1];
+            $worksheet->getStyle('A1:' . $maxCell . 1)->applyFromArray(array_merge($this->border, [
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER, // 水平居中对齐
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'fffbeeee'],
+                ],
+            ]));
+
+            // 表头设置单元格内容
+            foreach ($sheetParamsValue['titles'] as $titleKey => $titleValue) {
+                $worksheet->setCellValueExplicitByColumnAndRow($titleKey + 1, 1, $titleValue, 's');
+            }
+
+            $row = 2;
+            foreach ($sheetParamsValue['data'] as $item) {
+                $worksheet->getStyle("A{$row}:" . $maxCell . $row)->applyFromArray($this->border);
+                // 从第一列设置并初始化数据
+                foreach ($item as $i => $v) {
+                    $rowKey = array_search($i, $sheetParamsValue['keys']);
+                    if ($rowKey === false) {
+                        continue;
+                    }
+                    ++$rowKey;
+                    $worksheet->setCellValueExplicitByColumnAndRow($rowKey, $row, $v, 's');
+                }
+                ++$row;
+            }
+        }
+        // 默认打开第一个sheet
+        $this->spreadsheet->setActiveSheetIndex(0);
+        $fileName = $this->getFileName($tableName);
+
+        return $this->downloadDistributor($data['export_way'], $fileName);
     }
 
+    /**
+     * 初始化spreadsheet.
+     */
     protected function initSpreadsheet()
     {
         $this->spreadsheet = new Spreadsheet();
@@ -125,11 +213,18 @@ class Excel implements ExcelInterface
         ];
     }
 
+    /**
+     * 单元格.
+     * @return string[]
+     */
     protected function cellMap()
     {
         return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
     }
 
+    /**
+     * 初始化保存到本地的文件夹.
+     */
     protected function initLocalFileDir()
     {
         $this->config['local_file_address'] = $this->config['local_file_address'] ?? BASE_PATH . '/storage/excel';
@@ -143,7 +238,7 @@ class Excel implements ExcelInterface
      */
     protected function getFileName(string $tableName)
     {
-        return sprintf('%s_%s.xlsx', $tableName, date('Y_m_d_His'));
+        return sprintf('%s_%s.xlsx', $tableName, date('Ymd_His'));
     }
 
     /**
@@ -179,28 +274,10 @@ class Excel implements ExcelInterface
         switch ($exportWay) {
             case ExcelConstant::SAVE_TO_A_LOCAL_DIRECTORY:
                 return $this->saveToLocal($fileName);
-            case ExcelConstant::DOWNLOAD_TO_BROWSER:
-                return $this->saveToBrowser($fileName);
             case ExcelConstant::DOWNLOAD_TO_BROWSER_BY_TMP:
-                return $this->saveToBrowserByTmp($fileName);
             default:
                 return $this->saveToBrowserByTmp($fileName);
         }
-    }
-
-    /**
-     * 直接从浏览器下载到本地（不建议使用）.
-     *
-     * @throws \PhpOffice\PhpSpreadsheet\Writer\Exception
-     */
-    protected function saveToBrowser(string $fileName)
-    {
-        $writer = IOFactory::createWriter($this->spreadsheet, $this->_fileType);
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="' . $fileName . '"');
-        header('Cache-Control: max-age=0');
-
-        return $writer->save('php://output');
     }
 
     /**
@@ -237,6 +314,11 @@ class Excel implements ExcelInterface
             ->withBody(new SwooleStream((string) $content));
     }
 
+    /**
+     * 获取保存到本地的excel地址.
+     *
+     * @return string
+     */
     protected function getLocalUrl(string $fileName)
     {
         return $this->config['local_file_address'] . DIRECTORY_SEPARATOR . $fileName;

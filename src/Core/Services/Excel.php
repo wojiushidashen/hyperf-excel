@@ -212,6 +212,43 @@ class Excel implements ExcelInterface
         return $this->downloadDistributor($data['export_way'], $fileName);
     }
 
+    public function import(array $data): array
+    {
+        $validation = [
+            'import_way' => 'required|int|in:' . implode(',', array_keys(ExcelConstant::getImportWayMap())),
+            'file_path' => ['required_if:import_way,' . ExcelConstant::THE_LOCAL_IMPORT, 'string', 'regex:/(?:[x|X][l|L][s|S][x|X])$/'],
+        ];
+
+        $noticeMesasage = [
+            'import_way.in' => '导入方式错误',
+            'file_path.required_if' => '本地上传file_path字段不能为空',
+            'file_path.regx' => '上传文件只支持.Xlsx格式',
+        ];
+
+        $this->validator->verify($data, $validation, $noticeMesasage);
+
+        switch ($data['import_way']) {
+            case ExcelConstant::THE_LOCAL_IMPORT:
+                $filePath = $data['file_path'];
+                break;
+            default:
+                $file = $this->importFileRequetVerify();
+                $filePath = $file['tmp_file'];
+        }
+
+        $spreadsheet = IOFactory::load($filePath);
+
+        $sheets = $spreadsheet->getAllSheets();
+
+        $data = [];
+
+        foreach ($sheets as $sheet) {
+            $data[] = $sheet->toArray();
+        }
+
+        return $data;
+    }
+
     /**
      * 导入单个sheet的excel入口.
      *
@@ -253,9 +290,9 @@ class Excel implements ExcelInterface
      * 导入分发器.
      *
      * @param array $data 数据
-     * @throws \PhpOffice\PhpSpreadsheet\Exception
      * @throws \Psr\Container\ContainerExceptionInterface
      * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
      * @return array
      */
     protected function importDistributor(array $data)
@@ -286,12 +323,26 @@ class Excel implements ExcelInterface
      * 从浏览器导入单个sheet的excel.
      *
      * @param array $data 数据
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
      * @throws \PhpOffice\PhpSpreadsheet\Exception
+     * @return array
+     */
+    protected function importExcelForASingleSheetBrowser(array $data)
+    {
+        $file = $this->importFileRequetVerify();
+
+        return $this->readExcelForASingleSheet($file['tmp_file'], $data);
+    }
+
+    /**
+     * 通过接口请求获取file.
+     *
      * @throws \Psr\Container\ContainerExceptionInterface
      * @throws \Psr\Container\NotFoundExceptionInterface
      * @return array
      */
-    protected function importExcelForASingleSheetBrowser(array $data)
+    protected function importFileRequetVerify()
     {
         $request = app()->get(RequestInterface::class);
 
@@ -310,7 +361,7 @@ class Excel implements ExcelInterface
             throw new ExcelException(ErrorCode::FAILED_TO_IMPORT_FILES_PROCEDURE);
         }
 
-        return $this->readExcelForASingleSheet($file['tmp_file'], $data);
+        return $file;
     }
 
     /**

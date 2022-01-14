@@ -28,4 +28,9 @@ interface ExcelInterface
      * 导入单个sheet的excel.
      */
     public function importExcelForASingleSheet(array $data = []): array;
+
+    /**
+     * 通用的导入方式.
+     */
+    public function import(array $data): array;
 }

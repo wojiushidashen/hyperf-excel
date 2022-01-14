@@ -23,4 +23,9 @@ interface ExcelInterface
      * @return mixed
      */
     public function exportExcelWithMultipleSheets(string $tableName, array $data = []);
+
+    /**
+     * 导入单个sheet的excel.
+     */
+    public function importExcelForASingleSheet(array $data = []): array;
 }

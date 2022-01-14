@@ -9,7 +9,12 @@ use Ezijing\HyperfExcel\Core\Constants\ExcelConstant;
 use Ezijing\HyperfExcel\Core\Exceptions\ExcelException;
 use Hyperf\Config\Annotation\Value;
 use Hyperf\HttpMessage\Stream\SwooleStream;
+use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Response;
+use Hyperf\Utils\Arr;
+use Hyperf\Utils\Coroutine;
+use Hyperf\Utils\Exception\ParallelExecutionException;
+use Hyperf\Utils\Parallel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -42,6 +47,20 @@ class Excel implements ExcelInterface
      * @Value("excel_plugin")
      */
     protected $config;
+
+    /**
+     * 值类型映射.
+     *
+     * @var string[]
+     */
+    protected $valueTypeMap = [
+        'int', // int
+        'string', // 字符串
+        'date', // Y-H-d H:i:s
+        'time', // 秒级时间戳
+        'float', // 转为浮点型
+        'function', // 函数
+    ];
 
     /**
      * 文件类型.
@@ -191,6 +210,224 @@ class Excel implements ExcelInterface
         $fileName = $this->getFileName($tableName);
 
         return $this->downloadDistributor($data['export_way'], $fileName);
+    }
+
+    /**
+     * 导入单个sheet的excel入口.
+     *
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     */
+    public function importExcelForASingleSheet(array $data = []): array
+    {
+        $validation = [
+            'import_way' => 'required|int|in:' . implode(',', array_keys(ExcelConstant::getImportWayMap())),
+            // 验证文件
+            'file_path' => ['required_if:import_way,' . ExcelConstant::THE_LOCAL_IMPORT, 'string', 'regex:/(?:[x|X][l|L][s|S][x|X])$/'],
+            'titles' => 'required|array',
+            'titles.*' => 'required|distinct',
+            'keys' => 'required|array',
+            'keys.*' => 'required|distinct',
+            'value_type' => 'array',
+            'value_type.*.key' => 'required',
+            'value_type.*.type' => 'required',
+            'value_type.*.func' => 'required_if:value_type.*.type,function',
+        ];
+        $noticeMesasage = [
+            'import_way.in' => '导入方式错误',
+            'file_path.required_if' => '本地上传file_path字段不能为空',
+            'file_path.regx' => '上传文件只支持.Xlsx格式',
+        ];
+        $this->validator->verify($data, $validation, $noticeMesasage);
+
+        // 强制titles和keys的数量保持一致
+        if (count($data['titles']) != count($data['keys'])) {
+            throw new ExcelException(ErrorCode::PARAMETER_ERROR, 'titles和keys要保持对应');
+        }
+
+        return $this->importDistributor($data);
+    }
+
+    /**
+     * 导入分发器.
+     *
+     * @param array $data 数据
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @return array
+     */
+    protected function importDistributor(array $data)
+    {
+        switch ($data['import_way']) {
+            case ExcelConstant::THE_LOCAL_IMPORT:
+                return $this->importExcelForASingleSheetLocal($data);
+            default:
+                return $this->importExcelForASingleSheetBrowser($data);
+        }
+    }
+
+    /**
+     * 从本地导入多个sheet的excel.
+     *
+     * @param array $data 数据
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
+     * @return array
+     */
+    protected function importExcelForASingleSheetLocal(array $data)
+    {
+        $filePath = $data['file_path'];
+
+        return $this->readExcelForASingleSheet($filePath, $data);
+    }
+
+    /**
+     * 从浏览器导入单个sheet的excel.
+     *
+     * @param array $data 数据
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @return array
+     */
+    protected function importExcelForASingleSheetBrowser(array $data)
+    {
+        $request = app()->get(RequestInterface::class);
+
+        if ($request->getMethod() != 'POST') {
+            throw new ExcelException(ErrorCode::FOR_EXAMPLE_IMPORT_DATA, '只接收POST请求');
+        }
+
+        $file = $request->file('import_file');
+        if (! $file || ! $file->isValid()) {
+            throw new ExcelException(ErrorCode::FAILED_TO_IMPORT_FILES_PROCEDURE);
+        }
+        $file = $file->toArray();
+
+        // 获取文件上传的临时文件
+        if (! isset($file['tmp_file'])) {
+            throw new ExcelException(ErrorCode::FAILED_TO_IMPORT_FILES_PROCEDURE);
+        }
+
+        return $this->readExcelForASingleSheet($file['tmp_file'], $data);
+    }
+
+    /**
+     * 格式化单个sheet的excel.
+     *
+     * @param string $filePath 文件路径
+     * @param array $data 数据
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
+     * @return array
+     */
+    protected function readExcelForASingleSheet(string $filePath, array $data)
+    {
+        $spreadsheet = IOFactory::load($filePath);
+
+        if (empty($list = $spreadsheet->getSheet(0)->toArray())) {
+            return [];
+        }
+
+        // 强制第一行必须是表头，无导入的数据
+        if (count($list) <= 1) {
+            return [];
+        }
+
+        // 获取表头、非正常格式不作处理
+        if (empty($headers = $list[0])) {
+            throw new ExcelException(ErrorCode::FOR_EXAMPLE_IMPORT_DATA);
+        }
+
+        // 匹配自定义的titles和keys
+        $titleMap = array_combine($data['titles'], $data['keys']);
+
+        // 获取指定key的映射结果
+        $keyMap = [];
+        foreach ($headers as $headerIndex => $header) {
+            if (isset($titleMap[trim($header)])) {
+                $keyMap[$headerIndex] = $titleMap[trim($header)];
+            }
+        }
+        if (empty($keyMap)) {
+            return [];
+        }
+
+        // 去除表头
+        array_shift($list);
+
+        // 初始化格式化的数据
+        $formatData = [];
+
+        $valueTypes = $data['value_type'] ?? [];
+
+        // 开启携程，格式化数据
+        $parallel = new Parallel(5);
+        foreach ($list as $index => &$item) {
+            $parallel->add(function () use (&$item, &$formatData, $index, $keyMap, $valueTypes) {
+                foreach ($keyMap as $keyIndex => $key) {
+                    $value = $item[$keyIndex];
+                    // 格式化值类型
+                    if ($valueTypes) {
+                        $keys = Arr::pluck($valueTypes, 'key');
+                        $valueTypes = array_combine($keys, $valueTypes);
+                        if (isset($valueTypes[$key])) {
+                            $value = $this->formatValue($key, $valueTypes[$key]['type'], $value, $valueTypes[$key]['func'] ?? null);
+                        }
+                    }
+                    $formatData[$index][$key] = $value;
+                }
+
+                return Coroutine::id();
+            });
+        }
+        try {
+            $parallel->wait();
+        } catch (ParallelExecutionException $e) {
+            throw new ExcelException(ErrorCode::ERROR, $e->getMessage());
+        }
+
+        return $formatData;
+    }
+
+    /**
+     * 格式化值的类型.
+     *
+     * @param $key 键
+     * @param $type 值类型
+     * @param $value 值
+     * @param null $func 回调函数
+     * @return false|int|mixed|string
+     */
+    protected function formatValue($key, $type, $value, $func = null)
+    {
+        $typeMap = array_flip($this->valueTypeMap);
+        if (! isset($typeMap[strtolower($type)])) {
+            throw new ExcelException(ErrorCode::PARAMETER_ERROR, 'value_type.*.type error');
+        }
+
+        switch (strtolower($type)) {
+            case 'int':
+                $value = (int) $value;
+                break;
+            case 'string':
+                $value = (string) $value;
+                break;
+            case 'date':
+                $value = date('Y-m-d H:i:s', (int) $value);
+                break;
+            case 'time':
+                $value = strtotime((string) $value);
+                break;
+            case 'function':
+                if ($func) {
+                    $value = $func($value);
+                }
+                break;
+            default:
+        }
+
+        return $value;
     }
 
     /**

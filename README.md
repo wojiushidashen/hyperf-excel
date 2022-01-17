@@ -337,7 +337,7 @@ Array (
 ##### 请求参数
 |参数|类型|
 |:---: |:----:|
-|import_file|text|
+|file|text|
 
 ##### 代码
 ```php

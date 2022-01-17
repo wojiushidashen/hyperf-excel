@@ -350,7 +350,7 @@ class Excel implements ExcelInterface
             throw new ExcelException(ErrorCode::FOR_EXAMPLE_IMPORT_DATA, '只接收POST请求');
         }
 
-        $file = $request->file('import_file');
+        $file = $request->file('file');
         if (! $file || ! $file->isValid()) {
             throw new ExcelException(ErrorCode::FAILED_TO_IMPORT_FILES_PROCEDURE);
         }

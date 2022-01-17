@@ -355,6 +355,7 @@ class Excel implements ExcelInterface
             throw new ExcelException(ErrorCode::FAILED_TO_IMPORT_FILES_PROCEDURE);
         }
         $file = $file->toArray();
+        print_r($file);
 
         // 获取文件上传的临时文件
         if (! isset($file['tmp_file'])) {

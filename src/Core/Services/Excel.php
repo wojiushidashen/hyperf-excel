@@ -118,6 +118,7 @@ class Excel implements ExcelInterface
 
         // 表头 设置单元格内容
         foreach ($data['titles'] as $key => $value) {
+            $worksheet->getColumnDimension($cellMap[$key])->setWidth(30);
             $worksheet->setCellValueExplicitByColumnAndRow($key + 1, 1, $value, 's');
         }
 
@@ -187,6 +188,8 @@ class Excel implements ExcelInterface
 
             // 表头设置单元格内容
             foreach ($sheetParamsValue['titles'] as $titleKey => $titleValue) {
+                // 设置列宽
+                $worksheet->getColumnDimension($cellMap[$titleKey])->setWidth(30);
                 $worksheet->setCellValueExplicitByColumnAndRow($titleKey + 1, 1, $titleValue, 's');
             }
 

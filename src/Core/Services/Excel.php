@@ -9,7 +9,7 @@ use Ezijing\HyperfExcel\Core\Constants\ExcelConstant;
 use Ezijing\HyperfExcel\Core\Exceptions\ExcelException;
 use Hyperf\Config\Annotation\Value;
 use Hyperf\HttpMessage\Stream\SwooleStream;
-use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\HttpServer\Request;
 use Hyperf\HttpServer\Response;
 use Hyperf\Utils\Arr;
 use Hyperf\Utils\Coroutine;
@@ -344,7 +344,7 @@ class Excel implements ExcelInterface
      */
     protected function importFileRequetVerify()
     {
-        $request = app()->get(RequestInterface::class);
+        $request = app()->get(Request::class);
 
         if ($request->getMethod() != 'POST') {
             throw new ExcelException(ErrorCode::FOR_EXAMPLE_IMPORT_DATA, '只接收POST请求');

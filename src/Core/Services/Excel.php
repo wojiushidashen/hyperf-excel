@@ -608,13 +608,14 @@ class Excel implements ExcelInterface
 
         $response = app()->get(Response::class);
 
-        $contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        $contentType = 'text/xlsx';
 
         return $response->withHeader('content-description', 'File Transfer')
             ->withHeader('content-type', $contentType)
             ->withHeader('content-description', "attachment;filename={$fileName}")
             ->withHeader('content-transfer-encoding', 'binary')
             ->withHeader('pragma', 'public')
+            ->withHeader('file_name', urlencode($fileName))
             ->withBody(new SwooleStream((string) $content));
     }
 

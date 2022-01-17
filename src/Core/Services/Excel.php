@@ -374,7 +374,21 @@ class Excel implements ExcelInterface
      */
     protected function readExcelForASingleSheet(string $filePath, array $data)
     {
-        $spreadsheet = IOFactory::load($filePath);
+        $objRead = IOFactory::createReader($this->_fileType);
+
+        $inputFileType = IOFactory::identify($filePath);
+        if (strtolower($inputFileType) != 'xlsx') {
+            throw new ExcelException(ErrorCode::PARAMETER_ERROR, '只支持导入Xlsx文件');
+        }
+
+        if (! $objRead->canRead($filePath)) {
+            throw new ExcelException(ErrorCode::FAILED_TO_IMPORT_FILES_PROCEDURE, '只支持导入Excel文件');
+        }
+
+        $objRead->setReadDataOnly(true);
+        $objRead->setReadEmptyCells(false);
+
+        $spreadsheet = @$objRead->load($filePath);
 
         if (empty($list = $spreadsheet->getSheet(0)->toArray())) {
             return [];
@@ -396,7 +410,7 @@ class Excel implements ExcelInterface
         // 获取指定key的映射结果
         $keyMap = [];
         foreach ($headers as $headerIndex => $header) {
-            if (isset($titleMap[trim($header)])) {
+            if ($header && isset($titleMap[trim($header)])) {
                 $keyMap[$headerIndex] = $titleMap[trim($header)];
             }
         }
@@ -428,7 +442,9 @@ class Excel implements ExcelInterface
                     }
                     $formatData[$index][$key] = $value;
                 }
-
+                if (empty(implode('', $formatData[$index]))) {
+                    unset($formatData[$index]);
+                }
                 return Coroutine::id();
             });
         }
@@ -538,7 +554,7 @@ class Excel implements ExcelInterface
     protected function saveToLocal(string $fileName)
     {
         $url = $this->getLocalUrl($fileName);
-        $writer = IOFactory::createWriter($this->spreadsheet, $this->_fileType);
+        $writer = @IOFactory::createWriter($this->spreadsheet, $this->_fileType);
         $writer->save($url);
         $this->spreadsheet->disconnectWorksheets();
         unset($this->spreadsheet);

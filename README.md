@@ -118,12 +118,29 @@ public function handle(Throwable $throwable, ResponseInterface $response)
 ```php
 $tableName = 'test';
 $data = [
-    'export_way' => ExcelConstant::SAVE_TO_A_LOCAL_DIRECTORY,
-    'titles' => ['ID', '用户名', '部门', '职位'],
-    'keys' => ['id', 'username', 'department', 'position'],
+    'export_way' => ExcelConstant::SAVE_TO_A_LOCAL_DIRECTORY, // 导出方式
+    'enable_number' => true, // 是否开启序号
+    'titles' => ['ID', '用户名', '部门', '职位'], // 设置表头
+    'keys' => ['id', 'username', 'department', 'position'], // 设置表头标识，必须与要导出的数据的key对应
+    // 要导出的数据
     'data' => [
         ['id' => '1', 'username' => '小明', 'department' => '运营部', 'position' => '产品运营'],
         ['id' => '2', 'username' => '小王', 'department' => '技术部', 'position' => 'PHP'],
+    ],
+    // 验证规则, 本地导入也适用
+    'value_type' => [
+        // 强转string
+        ['key' => 'position', 'type' => 'string'],
+        // 强转int
+        ['key' => 'id', 'type' => 'int'],
+        // 回调处理
+        [
+            'key' => 'department',
+            'type' => 'function',
+            'func' => function($value) {
+                return (string) $value;
+            },
+        ],
     ],
 ];
 
@@ -162,11 +179,27 @@ class ExcelController extends AbstractController
         $tableName = 'test';
         $data = [
             'export_way' => ExcelConstant::DOWNLOAD_TO_BROWSER_BY_TMP,
+            'enable_number' => false,
             'titles' => ['ID', '用户名', '部门', '职位'],
             'keys' => ['id', 'username', 'department', 'position'],
             'data' => [
                 ['id' => '1', 'username' => '小明', 'department' => '运营部', 'position' => '产品运营'],
                 ['id' => '2', 'username' => '小王', 'department' => '技术部', 'position' => 'PHP'],
+            ],
+            // 验证规则, 本地导入也适用
+            'value_type' => [
+                // 强转string
+                ['key' => 'position', 'type' => 'string'],
+                // 强转int
+                ['key' => 'id', 'type' => 'int'],
+                // 回调处理
+                [
+                    'key' => 'department',
+                    'type' => 'function',
+                    'func' => function($value) {
+                        return (string) $value;
+                    },
+                ],
             ],
         ];
 
@@ -183,12 +216,28 @@ $data = [
     'sheets_params' => [
         [
             'sheet_title' => '企业1',
+            'enable_number' => true, // 是否开启序号
             'titles' => ['ID', '用户名', '部门', '职位'],
             'keys' => ['id', 'username', 'department', 'position'],
             'data' => [
                 ['id' => '1', 'username' => '小明', 'department' => '运营部', 'position' => '产品运营'],
                 ['id' => '2', 'username' => '小王', 'department' => '技术部', 'position' => 'PHP'],
             ],
+            // 验证规则, 本地导入也适用
+            'value_type' => [
+                // 强转string
+                ['key' => 'position', 'type' => 'string'],
+                // 强转int
+                ['key' => 'id', 'type' => 'int'],
+                // 回调处理
+                [
+                    'key' => 'department',
+                    'type' => 'function',
+                    'func' => function($value) {
+                        return (string) $value;
+                    },
+                ],
+            ]
         ],
         [
             'sheet_title' => '企业2',
@@ -201,6 +250,7 @@ $data = [
         ],
         [
             'sheet_title' => '部门',
+            'enable_number' => false, // 是否开启序号
             'titles' => ['ID', '部门', '职位'],
             'keys' => ['id', 'department', 'position'],
             'data' => [
@@ -250,11 +300,27 @@ class ExcelController extends AbstractController
             'sheets_params' => [
                 [
                     'sheet_title' => '企业1',
+                    'enable_number' => true,
                     'titles' => ['ID', '用户名', '部门', '职位'],
                     'keys' => ['id', 'username', 'department', 'position'],
                     'data' => [
                         ['id' => '1', 'username' => '小明', 'department' => '运营部', 'position' => '产品运营'],
                         ['id' => '2', 'username' => '小王', 'department' => '技术部', 'position' => 'PHP'],
+                    ],
+                    // 验证规则, 本地导入也适用
+                    'value_type' => [
+                        // 强转string
+                        ['key' => 'position', 'type' => 'string'],
+                        // 强转int
+                        ['key' => 'id', 'type' => 'int'],
+                        // 回调处理
+                        [
+                            'key' => 'department',
+                            'type' => 'function',
+                            'func' => function($value) {
+                                return (string) $value;
+                            },
+                        ],
                     ],
                 ],
                 [

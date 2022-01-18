@@ -85,10 +85,15 @@ class Excel implements ExcelInterface
     {
         $this->validator->verify($data, [
             'export_way' => 'required|int|in:' . implode(',', array_keys(ExcelConstant::getExportWayMap())),
+            'enable_number' => 'boolean',
             'titles' => 'required|array|distinct',
             'keys' => 'required|array|distinct',
             'data' => 'present|array',
             'data.*' => 'required|array',
+            'value_type' => 'array',
+            'value_type.*.key' => 'required',
+            'value_type.*.type' => 'required',
+            'value_type.*.func' => 'required_if:value_type.*.type,function',
         ], [
             'titles.required' => '未设置表头',
             'keys.required' => '未设置列标识',
@@ -101,6 +106,17 @@ class Excel implements ExcelInterface
         }
 
         $worksheet = $this->spreadsheet->getActiveSheet();
+
+        // 表头 设置单元格内容
+        $enableNumber = false;
+        if (isset($data['enable_number']) && $data['enable_number']) {
+            $enableNumber = true;
+        }
+
+        if ($enableNumber) {
+            array_unshift($data['titles'], '序号');
+            array_unshift($data['keys'], 'num');
+        }
 
         // 设置工作表标题名称
         $worksheet->setTitle($tableName);
@@ -116,15 +132,27 @@ class Excel implements ExcelInterface
             ],
         ]));
 
-        // 表头 设置单元格内容
         foreach ($data['titles'] as $key => $value) {
-            $worksheet->getColumnDimension($cellMap[$key])->setWidth(30);
+            if ($key == '序号') {
+                $worksheet->getColumnDimension($cellMap[$key])->setWidth(10);
+            } else {
+                $worksheet->getColumnDimension($cellMap[$key])->setWidth(25);
+            }
+
             $worksheet->setCellValueExplicitByColumnAndRow($key + 1, 1, $value, 's');
         }
 
         // 从第二行开始,填充表格数据
         $row = 2;
+        // 序号
+        $num = 1;
+
+        $valueTypes = $data['value_type'] ?? [];
+
         foreach ($data['data'] as $item) {
+            if ($enableNumber) {
+                $item['num'] = $num;
+            }
             $worksheet->getStyle("A{$row}:" . $maxCell . $row)->applyFromArray($this->border);
             // 从第一列设置并初始化数据
             foreach ($item as $i => $v) {
@@ -132,9 +160,20 @@ class Excel implements ExcelInterface
                 if ($rowKey === false) {
                     continue;
                 }
+
+                // 格式化值类型
+                if ($valueTypes) {
+                    $keys = Arr::pluck($valueTypes, 'key');
+                    $valueTypes = array_combine($keys, $valueTypes);
+                    if (isset($valueTypes[$i])) {
+                        $v = $this->formatValue($i, $valueTypes[$i]['type'], $v, $valueTypes[$i]['func'] ?? null);
+                    }
+                }
+
                 ++$rowKey;
                 $worksheet->setCellValueExplicitByColumnAndRow($rowKey, $row, $v, 's');
             }
+            ++$num;
             ++$row;
         }
 
@@ -155,16 +194,31 @@ class Excel implements ExcelInterface
             'export_way' => 'required|int|in:' . implode(',', array_keys(ExcelConstant::getExportWayMap())),
             'sheets_params' => 'required|array',
             'sheets_params.*.sheet_title' => 'required|string',
+            'sheets_params.*.enable_number' => 'boolean',
             'sheets_params.*.titles' => 'required|array|distinct',
             'sheets_params.*.keys' => 'required|array|distinct',
             'sheets_params.*.data' => 'present|array',
             'sheets_params.*.data.*' => 'required|array',
+            'sheets_params.*.value_type' => 'array',
+            'sheets_params.*.value_type.*.key' => 'required',
+            'sheets_params.*.value_type.*.type' => 'required',
+            'sheets_params.*.value_type.*.func' => 'required_if:value_type.*.type,function',
         ], [
             'sheets_params.required' => 'sheets参数未设置',
         ]);
 
         $firstSheet = true;
         foreach ($data['sheets_params'] as $sheetParamsValue) {
+            $enableNumber = false;
+            if (isset($sheetParamsValue['enable_number']) && $sheetParamsValue['enable_number']) {
+                $enableNumber = true;
+            }
+
+            if ($enableNumber) {
+                array_unshift($sheetParamsValue['titles'], '序号');
+                array_unshift($sheetParamsValue['keys'], 'num');
+            }
+
             if ($firstSheet) {
                 $worksheet = $this->spreadsheet->getActiveSheet();
             } else {
@@ -189,12 +243,24 @@ class Excel implements ExcelInterface
             // 表头设置单元格内容
             foreach ($sheetParamsValue['titles'] as $titleKey => $titleValue) {
                 // 设置列宽
-                $worksheet->getColumnDimension($cellMap[$titleKey])->setWidth(30);
+                if ($titleKey == '序号') {
+                    $worksheet->getColumnDimension($cellMap[$titleKey])->setWidth(10);
+                } else {
+                    $worksheet->getColumnDimension($cellMap[$titleKey])->setWidth(25);
+                }
                 $worksheet->setCellValueExplicitByColumnAndRow($titleKey + 1, 1, $titleValue, 's');
             }
 
             $row = 2;
+            // 序号
+            $num = 1;
+
+            $valueTypes = $sheetParamsValue['value_type'] ?? [];
+
             foreach ($sheetParamsValue['data'] as $item) {
+                if ($enableNumber) {
+                    $item['num'] = $num;
+                }
                 $worksheet->getStyle("A{$row}:" . $maxCell . $row)->applyFromArray($this->border);
                 // 从第一列设置并初始化数据
                 foreach ($item as $i => $v) {
@@ -202,9 +268,20 @@ class Excel implements ExcelInterface
                     if ($rowKey === false) {
                         continue;
                     }
+
+                    // 格式化值类型
+                    if ($valueTypes) {
+                        $keys = Arr::pluck($valueTypes, 'key');
+                        $valueTypes = array_combine($keys, $valueTypes);
+                        if (isset($valueTypes[$i])) {
+                            $v = $this->formatValue($i, $valueTypes[$i]['type'], $v, $valueTypes[$i]['func'] ?? null);
+                        }
+                    }
+
                     ++$rowKey;
                     $worksheet->setCellValueExplicitByColumnAndRow($rowKey, $row, $v, 's');
                 }
+                ++$num;
                 ++$row;
             }
         }

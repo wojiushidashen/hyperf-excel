@@ -316,17 +316,31 @@ class Excel implements ExcelInterface
                 $filePath = $file['tmp_file'];
         }
 
-        $spreadsheet = IOFactory::load($filePath);
-
-        $sheets = $spreadsheet->getAllSheets();
-
-        $data = [];
-
-        foreach ($sheets as $sheet) {
-            $data[] = $sheet->toArray();
+        if (file_exists($filePath)) {
+            $inputFileType = \PhpOffice\PhpSpreadsheet\IOFactory::identify($filePath);
+            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($inputFileType);
+            $reader->setReadDataOnly(true);
+            $spreadsheetReader = $reader->load($filePath);
+            $sheets = $spreadsheetReader->getAllSheets();
+            foreach ($sheets as $sheet) {
+                $data[] = $sheet->toArray();
+            }
+            return $data;
+        } else {
+            throw new ExcelException(ErrorCode::FAILED_TO_IMPORT_FILES_PROCEDURE,'文件写入错误');
         }
 
-        return $data;
+//        $spreadsheet = IOFactory::load($filePath);
+//
+//        $sheets = $spreadsheet->getAllSheets();
+//
+//        $data = [];
+//
+//        foreach ($sheets as $sheet) {
+//            $data[] = $sheet->toArray();
+//        }
+//
+//        return $data;
     }
 
     /**

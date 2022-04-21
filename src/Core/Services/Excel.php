@@ -491,8 +491,8 @@ class Excel implements ExcelInterface
         // 获取指定key的映射结果
         $keyMap = [];
         foreach ($headers as $headerIndex => $header) {
-            if ($header && isset($titleMap[trim($header)])) {
-                $keyMap[$headerIndex] = $titleMap[trim($header)];
+            if ($header && isset($titleMap[trim((string)$header)])) {
+                $keyMap[$headerIndex] = $titleMap[trim((string)$header)];
             }
         }
         if (empty($keyMap)) {
@@ -512,7 +512,7 @@ class Excel implements ExcelInterface
         foreach ($list as $index => &$item) {
             $parallel->add(function () use (&$item, &$formatData, $index, $keyMap, $valueTypes) {
                 foreach ($keyMap as $keyIndex => $key) {
-                    $value = $item[$keyIndex];
+                    $value = (string) ($item[$keyIndex] ?? '');
                     // 格式化值类型
                     if ($valueTypes) {
                         $keys = Arr::pluck($valueTypes, 'key');
